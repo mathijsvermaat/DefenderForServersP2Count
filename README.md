@@ -17,13 +17,18 @@ This Azure Resource Graph (ARG) query replicates the **virtualMachinesResourcesC
 - `microsoft.hybridcompute/machines`
 - `microsoft.compute/virtualmachinescalesets`
 
+The query includes a **total row** that sums all counts across every subscription, displayed as `** Total (all subscriptions) **`. Results are sorted by subscription name.
+
 ## How to run
 
 1. Open the [Azure Resource Graph Explorer](https://portal.azure.com/#view/HubsExtension/ArgQueryBlade)
 2. Paste the contents of `DefenderForServersP2Count.kql`
+3. Select the target subscriptions and click **Run query**
 
 ## Sample output
 
 | subscriptionId | subscriptionName | virtualMachinesResourcesCount | vmssServicesResourcesCount | totalServersCount |
 |---|---|---|---|---|
-| 5acda791-... | My Subscription | 10 | 0 | 10 |
+| 5acda791-... | My Subscription A | 10 | 0 | 10 |
+| 8bef3c72-... | My Subscription B | 5 | 3 | 8 |
+| --- | \*\* Total (all subscriptions) \*\* | 15 | 3 | 18 |
