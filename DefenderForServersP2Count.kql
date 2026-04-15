@@ -1,0 +1,12 @@
+resources
+| where type in~ ("microsoft.compute/virtualmachines", "microsoft.classiccompute/virtualmachines", "microsoft.hybridcompute/machines", "microsoft.compute/virtualmachinescalesets")
+| extend virtualMachineCount = iff(type in~ ("microsoft.compute/virtualmachines", "microsoft.classiccompute/virtualmachines", "microsoft.hybridcompute/machines"), 1, 0)
+| extend vmssCount = iff(type =~ "microsoft.compute/virtualmachinescalesets" and sku != "" and sku.capacity != "", toint(sku.capacity), 0)
+| summarize virtualMachinesResourcesCount = sum(virtualMachineCount), vmssServicesResourcesCount = sum(vmssCount) by subscriptionId
+| extend totalServersCount = virtualMachinesResourcesCount + vmssServicesResourcesCount
+| join kind=inner (
+    resourcecontainers
+    | where type == "microsoft.resources/subscriptions"
+    | project subscriptionId = subscriptionId, subscriptionName = name
+) on subscriptionId
+| project subscriptionId, subscriptionName, virtualMachinesResourcesCount, vmssServicesResourcesCount, totalServersCount
