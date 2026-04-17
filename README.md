@@ -23,7 +23,6 @@ The query includes a **total row** that sums all counts across every subscriptio
 
 1. Open the [Azure Resource Graph Explorer](https://portal.azure.com/#view/HubsExtension/ArgQueryBlade)
 2. Paste the contents of `DefenderForServersP2Count.kql`
-3. Select the target subscriptions and click **Run query**
 
 ## Sample output
 
