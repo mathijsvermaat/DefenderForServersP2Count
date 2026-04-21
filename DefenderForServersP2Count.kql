@@ -7,17 +7,32 @@ resources
 | join kind=inner (
     resourcecontainers
     | where type == "microsoft.resources/subscriptions"
-    | project subscriptionId = subscriptionId, subscriptionName = name
+    | project subscriptionId, subscriptionName = name
 ) on subscriptionId
-| project subscriptionId, subscriptionName, virtualMachinesResourcesCount, vmssServicesResourcesCount, totalServersCount
-| union (
-    resources
-    | where type in~ ("microsoft.compute/virtualmachines", "microsoft.classiccompute/virtualmachines", "microsoft.hybridcompute/machines", "microsoft.compute/virtualmachinescalesets")
-    | extend virtualMachineCount = iff(type in~ ("microsoft.compute/virtualmachines", "microsoft.classiccompute/virtualmachines", "microsoft.hybridcompute/machines"), 1, 0)
-    | extend vmssCount = iff(type =~ "microsoft.compute/virtualmachinescalesets" and sku != "" and sku.capacity != "", toint(sku.capacity), 0)
-    | summarize virtualMachinesResourcesCount = sum(virtualMachineCount), vmssServicesResourcesCount = sum(vmssCount)
-    | extend totalServersCount = virtualMachinesResourcesCount + vmssServicesResourcesCount
-    | extend subscriptionId = "---", subscriptionName = "** Total (all subscriptions) **"
-    | project subscriptionId, subscriptionName, virtualMachinesResourcesCount, vmssServicesResourcesCount, totalServersCount
-)
-| order by subscriptionName asc
+| join kind=leftouter (
+    securityresources
+    | where type =~ "microsoft.security/pricings"
+    | where name =~ "VirtualMachines"
+    | extend pricingTier = tostring(properties.pricingTier)
+    | extend subPlan = tostring(properties.subPlan)
+    | extend planRank = case(
+        pricingTier =~ "Standard" and subPlan =~ "P2", 3,
+        pricingTier =~ "Standard" and subPlan =~ "P1", 2,
+        pricingTier =~ "Free", 1,
+        0)
+    | summarize arg_max(planRank, pricingTier, subPlan) by subscriptionId
+    | extend plan = case(
+        pricingTier =~ "Free", "Off",
+        subPlan =~ "P1", "P1",
+        subPlan =~ "P2", "P2",
+        "Unknown")
+    | project subscriptionId, plan
+) on subscriptionId
+| extend plan = coalesce(plan, "No plan")
+| project subscriptionId, subscriptionName, plan, virtualMachinesResourcesCount, vmssServicesResourcesCount, totalServersCount
+| extend rowType = pack_array("detail", "total")
+| mv-expand rowType to typeof(string)
+| extend subscriptionId = iff(rowType == "total", "---", subscriptionId)
+| extend subscriptionName = iff(rowType == "total", "** Total **", subscriptionName)
+| summarize virtualMachinesResourcesCount = sum(virtualMachinesResourcesCount), vmssServicesResourcesCount = sum(vmssServicesResourcesCount), totalServersCount = sum(totalServersCount) by subscriptionId, subscriptionName, plan
+| order by plan asc, subscriptionName asc
